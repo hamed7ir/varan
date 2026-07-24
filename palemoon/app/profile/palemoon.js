@@ -1279,3 +1279,55 @@ pref("status4evar.status.toolbar.maxLength", 0);
 
 pref("status4evar.status.popup.invertMirror", false);
 pref("status4evar.status.popup.mouseMirror", true);
+
+// Varan (Varan JIT, task #33) -- BASELINE-ONLY on ARM32 Windows RT.
+//
+// The ARM32 build compiles the whole JIT backend (JS_CODEGEN_ARM: there is no
+// "Baseline-only backend" build option -- ENABLE_ION gates the entire jit). Baseline
+// is device-proven (trip 2: oracle 127/127, hardfp + unaligned paths). Ion is NOT yet
+// device-hardened -- the I-cache-flush-on-invalidation path (PatchWrite_Imm32) and the
+// C4/C5/C6 invalidation-walk interworking defects are reachable only when Ion INVALIDATES
+// a frame, which never happens while Ion is off. Disabling Ion here is the browser
+// equivalent of js.exe's `--no-ion`: it keeps Baseline (baselinejit stays true) and defers
+// every Ion device risk past the trip-3 success criterion. Flip to true only after the Ion
+// hardening track lands. Harmless on the interpreter (JS_CODEGEN_NONE) build -- no Ion exists
+// there either.
+//
+// ★ FLIPPED TO TRUE 2026-07-23 for the Ion MEASUREMENT TRIP. The blockers named above are
+// resolved: C5/C6 (the invalidation-walk interworking defects) are FIXED and proven -- 174042
+// in-slot observations, 0 footprint violations, and the fix alone removed ~280 failing
+// invocations. Task #32 (PatchWrite_Imm32 I-cache flush) is CLOSED with an enumerated verdict:
+// one writer (Ion.cpp:3150), one reader (JitFrames.cpp:162) that reads it as DATA via
+// GetPointer, and the word is unreachable as code because PatchWrite_NearCall redirects the OSI
+// point in the same loop iteration -- so no flush is needed. The Ion JS tier is gate-clean:
+// 0 T2-only failures against a CONTEMPORANEOUS A32 control, oracle 127/127 on all three tiers.
+//
+// ⚠️ This pref is the A/B control for the trip: it is flippable in about:config, so the SAME
+// binary measures ion=true vs ion=false with every other variable (compositor, build, prefs)
+// held identical. Do NOT compare against the older Baseline-only package instead.
+pref("javascript.options.ion", true);
+
+// ★ WASM/ASM.JS OFF FOR THIS TRIP ONLY. The wasm tier is NOT gate-clean: 95 tests still fail
+// (wasm 30, asm.js 65) and four wasm files carrying ARM paths are still unaudited
+// (WasmFrameIterator.cpp 15 arms, WasmTypes.cpp 6, WasmJS.cpp 2, WasmTypes.h 1). B12 (12
+// even-target jump-table branches) is fixed, but VaranBwInRange x5 and the AllowUnaligned
+// question are open. Disabling both means that entire unaudited surface CANNOT execute, so it
+// cannot confound the measurement or crash the trip. Re-enable once the wasm gate is met.
+pref("javascript.options.wasm", false);
+pref("javascript.options.asmjs", false);
+
+// ============================================================================
+// VARAN DEVICE-TEST GPU ACTIVATION (baked so the tester need not hand-set them).
+// D3D9 hardware compositing is DEVICE-PROVEN on Tegra 3 (M5: about:support
+// Compositing = Direct3D 9, GPU-accelerated 1/1). These three are what turn it on:
+//   disabled=false : without this NOTHING accelerates (it was baked true for the
+//                    software-only default; M4.3 E1).
+//   force=true     : bypasses the UNKNOWN_DEVICE_VENDOR blocklist (UserForceEnable).
+//   prefer-d3d9    : offer D3D9 FIRST and disable the D3D11 attempt that fails at FL9_1.
+// prefer-opengl stays false (a doomed WGL/EGL attempt) and allow-d3d9-fallback stays
+// true -- both already correct in all.js.
+// For the Ion A/B this is a CONSTANT across ion=true/false, so Ion stays the only variable.
+// ============================================================================
+pref("layers.acceleration.disabled", false);
+pref("layers.acceleration.force",    true);
+pref("layers.prefer-d3d9",           true);

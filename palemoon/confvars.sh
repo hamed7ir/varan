@@ -8,8 +8,19 @@
 # These values where appropriate are hardcoded in application.ini
 # to "Pale Moon" and "Moonchild Productions" respectively for
 # Pale Moon
-MOZ_APP_BASENAME=Palemoon 
+MOZ_APP_BASENAME=Palemoon
 MOZ_APP_VENDOR=Moonchild
+
+# Varan (rename): the executable name. Defaults from MOZ_APP_BASENAME (-> palemoon.exe); pin it to
+# "varan" so the binary is varan.exe. UA-safe: MOZ_APP_UA_NAME (below) is what the UA uses, not this.
+MOZ_APP_NAME=varan
+
+# Varan (rename): pin the UA app token so the Varan display rebrand cannot leak into the
+# User-Agent. Empty MOZ_APP_UA_NAME => nsHttpHandler.cpp:319-326 falls back to application.ini
+# Name ("Pale Moon" -> stripped "PaleMoon"); pinning it here short-circuits that chain so the UA
+# app token stays byte-identical ("PaleMoon/<ver>") regardless of any downstream branding change.
+# Google sign-in + YouTube are proven on this exact UA. Do NOT change this token.
+MOZ_APP_UA_NAME=PaleMoon
 
 # Application Version
 # MOZ_APP_VERSION is read from ./config/version.txt
