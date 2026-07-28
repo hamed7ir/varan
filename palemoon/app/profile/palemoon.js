@@ -1307,14 +1307,67 @@ pref("status4evar.status.popup.mouseMirror", true);
 // held identical. Do NOT compare against the older Baseline-only package instead.
 pref("javascript.options.ion", true);
 
-// ★ WASM/ASM.JS OFF FOR THIS TRIP ONLY. The wasm tier is NOT gate-clean: 95 tests still fail
-// (wasm 30, asm.js 65) and four wasm files carrying ARM paths are still unaudited
-// (WasmFrameIterator.cpp 15 arms, WasmTypes.cpp 6, WasmJS.cpp 2, WasmTypes.h 1). B12 (12
-// even-target jump-table branches) is fixed, but VaranBwInRange x5 and the AllowUnaligned
-// question are open. Disabling both means that entire unaudited surface CANNOT execute, so it
-// cannot confound the measurement or crash the trip. Re-enable once the wasm gate is met.
+// ★ WASM/ASM.JS OFF -- A STANDING DECISION, NOT A ONE-TRIP MEASURE (re-decided 2026-07-28).
+//
+// This block used to say "FOR THIS TRIP ONLY ... re-enable once the wasm gate is met" while
+// shipping in every build, so the file contradicted the product. Reviewed against the actual
+// gate state and DELIBERATELY LEFT OFF. Status of each condition the old comment named:
+//   * B12 (12 even-target jump-table branches)  -- FIXED.
+//   * VaranBwInRange x5                         -- CLOSED by (D)-uniform-3-slot (5dc1072820),
+//                                                  device-confirmed on VENICE 2026-07-25.
+//   * AllowUnaligned                            -- STILL OPEN. No closing evidence found.
+//   * wasm/asm.js jit-test residual             -- STILL 95 FAILING (wasm 30, asm.js 65),
+//                                                  varan-jit/MANIFEST.md:662, unchanged.
+//   * four wasm files with unaudited ARM paths  -- STILL UNAUDITED (WasmFrameIterator.cpp 15
+//                                                  arms, WasmTypes.cpp 6, WasmJS.cpp 2,
+//                                                  WasmTypes.h 1).
+//
+// Two of five conditions are met. Turning wasm on would admit an execution surface with 95
+// known failures onto a device build. The four-arm devbox bisect (2026-07-28) is sometimes
+// cited the other way, so state precisely what it showed: with wasm/asm.js OFF, YouTube's
+// player still worked and the site merely shipped a different JS bundle. That is evidence
+// that keeping them off costs nothing visible -- it is NOT evidence that turning them on is
+// safe, and it is the former that this pref needs.
+//
+// RE-ENABLE WHEN: the wasm/asm.js jit-test residual reaches 0 and AllowUnaligned is closed.
+// Both are tracked in varan-jit/MANIFEST.md; neither is blocked on anything in this file.
 pref("javascript.options.wasm", false);
 pref("javascript.options.asmjs", false);
+
+// ============================================================================
+// VARAN UA OVERRIDE -- web.whatsapp.com  (added 2026-07-28)
+// ============================================================================
+// * THIS IS OURS, NOT ADOPTED. Stock Pale Moon 34.3.1 ships ZERO site-specific UA
+// overrides -- verified against the shipped omni.ja, not just the source tree. So this
+// is a Varan-only addition and nothing upstream depends on it.
+//
+// web.whatsapp.com refuses the browser outright ("WhatsApp works with Google Chrome
+// 100+"). That is UA sniffing, not an engine defect: our UA is pinned byte-identical to
+// Pale Moon via MOZ_APP_UA_NAME=PaleMoon, and WhatsApp allowlists specific browsers.
+//
+// Firefox 102, deliberately NOT Chrome. Claiming Chrome invites Chrome-only code paths
+// this engine (Goanna 6.9.0, ESR52-era) cannot run; Firefox 102 is a Gecko claim that is
+// closer to true and degrades more gracefully. 102 is the last ESR before several APIs
+// we lack became baseline.
+//
+// !! EXPECT THIS TO FAIL PAST THE GATE. It gets us through the browser check; it does
+// not give us Service Workers or modern syntax. The value is diagnostic -- it tells us
+// WHERE WhatsApp breaks instead of stopping at the front door. If it turns out to fail
+// in a way that looks like a browser bug to a user, remove it: a site that refuses
+// honestly is better than one that half-loads.
+//
+// Mechanism verified in-tree (all three, by reading the source):
+//   %OS_SLICE%  netwerk/protocol/http/UserAgentOverrides.jsm:171 -- real token, replaced
+//               from gOSSlice = PLATFORM + "; " + OSCPU + ";" (it supplies its own ";").
+//   default prefs honoured  :182-193 -- buildOverrides() enumerates via
+//               gPrefBranch.getChildList(""), which returns default prefs too.
+//   master switch  modules/libpref/init/all.js:33
+//               general.useragent.site_specific_overrides defaults true.
+//
+// NO google.com OVERRIDE, on purpose: sign-in currently works and is a trip stop-rule, a
+// modern UA would fetch heavier bundles onto the phase that already owns the load time,
+// and Google penalises a UA/capability mismatch.
+pref("general.useragent.override.web.whatsapp.com", "Mozilla/5.0 (%OS_SLICE% rv:102.0) Gecko/20100101 Firefox/102.0");
 
 // ============================================================================
 // VARAN DEVICE-TEST GPU ACTIVATION (baked so the tester need not hand-set them).
