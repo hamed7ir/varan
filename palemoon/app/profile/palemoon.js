@@ -1398,11 +1398,19 @@ pref("media.suspend-bkgnd-video.enabled", false);
 // duplicated here -- two definitions of the same pref in one file is how a fix silently
 // gets reverted later.)
 
-// Image decode threads. Default -1 means "derive from core count", and
-// image/DecodePool.cpp:235-247 then picks numCores-1. Tegra 3 reports 4 cores but only
-// about 2 are usefully available, so we get 3 decode threads competing with the main
-// thread. Pin to 2. NB DecodePool reads this once at startup.
-pref("image.multithreaded_decoding.limit", 2);
+// image.multithreaded_decoding.limit -- DELIBERATELY NOT SET. Do not re-add without a
+// device measurement.
+//
+// It was pinned to 2 here, and that was WRONG DIRECTION. image/DecodePool.cpp:234-250
+// reads gfxPrefs::ImageMTDecodingLimit() (default -1) and auto-sizes: <=1 core -> 1,
+// 2 cores -> 2, otherwise numCores-1. Tegra 3 reports 4 cores, so the default gives 3
+// decode threads and already reserves a core for the main thread -- which is the entire
+// point of the upstream heuristic. Pinning to 2 REDUCED decode parallelism, and the
+// justification given ("only about 2 cores are usefully available") was an assertion
+// about the companion core that nothing measured.
+//
+// Same shape as the MSE eviction-threshold mistake: an unmeasured override of a tuned
+// default, moving in the restrictive direction. Restored to the default.
 
 // APZ (async pan/zoom = off-main-thread scrolling). layers.async-pan-zoom.enabled is
 // already true, but it is INERT on its own: gfxPlatform.cpp:2255 requires
