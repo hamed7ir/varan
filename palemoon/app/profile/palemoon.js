@@ -519,7 +519,12 @@ pref("dom.disable_open_during_load",              true);
 pref("dom.max_chrome_script_run_time",            30);
 pref("dom.max_script_run_time",                   15);
 // Automatically terminate non-responsive scripts if script_run_time expires.
-pref("dom.always_stop_slow_scripts",              true);
+// Varan 2026-07-30: was true (silent kill, no prompt -- nsGlobalWindow.cpp:11322 returns
+// KillSlowScript immediately). Set to the PLATFORM DEFAULT of false so the user gets a
+// prompt instead. On VENICE a page load is 23-135 s, so the ~7.5 s threshold (half of
+// max_script_run_time, checked twice) was truncating YouTube's init scripts.
+// DEVICE-CONFIRMED: with this false the YouTube UI loads fully.
+pref("dom.always_stop_slow_scripts",              false);
 
 pref("javascript.options.showInConsole",          true);
 #ifdef DEBUG
@@ -609,8 +614,11 @@ pref("privacy.exposeContentTitleInWindow.pbm", false);
 
 pref("network.proxy.share_proxy_settings",  false); // use the same proxy settings for all protocols
 
-// Disable speculative half-open connections on Pale Moon
-pref("network.http.speculative-parallel-limit", 0);
+// Speculative half-open connections. Upstream Pale Moon disables these (0). Varan
+// 2026-07-29: restored to the Gecko default of 6. On VENICE, TLS setup is a large share of
+// time-to-first-byte and page loads run 23-135 s, so pre-establishing connections is a
+// straight win; the privacy rationale for 0 is not worth that cost on this device.
+pref("network.http.speculative-parallel-limit", 6);
 
 // Enable pipelining over SSL
 pref("network.http.pipelining.ssl", true);
@@ -1368,6 +1376,86 @@ pref("javascript.options.asmjs", false);
 // modern UA would fetch heavier bundles onto the phase that already owns the load time,
 // and Google penalises a UA/capability mismatch.
 pref("general.useragent.override.web.whatsapp.com", "Mozilla/5.0 (%OS_SLICE% rv:102.0) Gecko/20100101 Firefox/102.0");
+
+// ============================================================================
+// VARAN PERFORMANCE PREFS (baked 2026-07-29, from the verified review #2 register)
+// Evidence for every line is in VARAN-REVIEW2-REPORT.md; the plan is in
+// VARAN-VP9-SPEED-PLAN.md. Each was read out of the source, not assumed.
+// ============================================================================
+
+// Video-decode suspend. MediaDecoderStateMachine.cpp:2261 arms a 10 s timer whenever the
+// video frame is not visible and then calls SetVideoBlankDecode(true) ->
+// MediaFormatReader.cpp:2366 Flush() + ShutdownDecoder(). nsFrame.cpp:702 makes a REBUILT
+// video frame start out APPROXIMATELY_NONVISIBLE, so a player that reparents its <video>
+// can trip this while the main thread is too busy to deliver the refresh tick that would
+// clear it.
+// ** DEVICE-TESTED 2026-07-29: turning this off did NOT fix the YouTube stop. ** The
+// mechanism is real but it is not that bug. Kept off anyway: this device never usefully
+// backgrounds video, and a spurious decoder shutdown has no upside here.
+pref("media.suspend-bkgnd-video.enabled", false);
+
+// (network.http.speculative-parallel-limit is changed AT ITS ORIGINAL SITE above, not
+// duplicated here -- two definitions of the same pref in one file is how a fix silently
+// gets reverted later.)
+
+// Image decode threads. Default -1 means "derive from core count", and
+// image/DecodePool.cpp:235-247 then picks numCores-1. Tegra 3 reports 4 cores but only
+// about 2 are usefully available, so we get 3 decode threads competing with the main
+// thread. Pin to 2. NB DecodePool reads this once at startup.
+pref("image.multithreaded_decoding.limit", 2);
+
+// APZ (async pan/zoom = off-main-thread scrolling). layers.async-pan-zoom.enabled is
+// already true, but it is INERT on its own: gfxPlatform.cpp:2255 requires
+// apz.desktop.enabled first, because for XUL apps APZ is only used with e10s or an
+// explicit opt-in -- and e10s does not exist in this build. So all scrolling has been
+// synchronous on the main thread, which is the worst possible arrangement on a device
+// whose main thread is saturated during page load.
+// ! HIGHER RISK THAN THE OTHERS. It changes how scrolling and painting meet the
+// compositor, and ours is the restored D3D9 path with a 2048 texture gate (which also
+// halves the displayport). If scrolling misbehaves or blank regions appear, set false --
+// nothing else depends on it.
+pref("apz.desktop.enabled", true);
+
+// --- DEVICE-CONFIRMED 2026-07-29/30 on VENICE. Do not remove without a device test. ---
+
+// P1 (slow-script killer) is fixed AT ITS ORIGINAL SITE above, near
+// dom.max_script_run_time -- not duplicated here. Two definitions of one pref in a
+// single file is how a fix silently gets reverted later.
+
+// P2. media.video-max-decode-error defaults to 2, so the THIRD consecutive decode error is
+// fatal and tears the pipeline down. On this device transient errors are common enough to
+// hit three in a row. DEVICE RESULT: with 20, video PLAYS and seeking works.
+// This raises tolerance; it does not fix whatever produces the errors.
+pref("media.video-max-decode-error", 20);
+
+// P4. Content rasterisation backend. Was "direct2d1.1,cairo" (goanna.js:751), but D2D1.1 is
+// UNREACHABLE here -- D3D11 is only attempted at feature levels 10_1/10_0/9_3
+// (gfxWindowsPlatform.cpp:354-356) and Tegra 3 is FL9_1 -- so every page fell through to
+// cairo/pixman. And pixman has NO ARM fast paths at all: pixman-arm.obj is one instruction,
+// `bx lr`, and the hot routines measure 0 NEON registers (fast_composite_over_n_8_8888, used
+// by EVERY antialiased text run, is 126 scalar instructions).
+// Skia needs no rebuild to select: gfxWindowsPlatform.cpp:464 puts SKIA in the content mask
+// UNCONDITIONALLY. It already carries ~10x more SIMD than pixman purely from -O2
+// auto-vectorisation (SkOpts.obj 1451 NEON insns vs pixman-fast-path.obj 145) -- and its
+// hand-written NEON is still switched off, so there is more to come.
+// DEVICE RESULT: renders correctly AND the UI loads MUCH better.
+pref("gfx.content.azure.backends", "skia,cairo");
+
+// Pairs with the -STACK:4194304 raise in uxp/config/config.mk. The JS recursion ceiling is
+//   kStackQuota = min(GetWindowsStackSize(), main_thread_stack_quota_cap)
+// (XPCJSContext.cpp:3288/3320). Without raising this cap the min() clamps us to 2 MB and
+// most of the extra stack is unreachable from JS. 3.5 MB leaves headroom below the 4 MB
+// reserve for native frames that are not JS.
+// !! Judgement call, not a proven fix -- see the config.mk comment. Revert both together.
+pref("javascript.options.main_thread_stack_quota_cap", 3670016);
+
+// NOT SET, ON PURPOSE: media.hardware-video-decoding.force-enabled stays false.
+// The downstream path does look open now (gfxWindowsPlatform.cpp:383 skips
+// TextureSharingWorks because prefer-d3d9 is baked true; WMFVideoMFTManager.cpp:397
+// accepts LAYERS_D3D9; DXVA2Manager.cpp:461 gives a natively-hosted D3D9SurfaceImage with
+// zero CPU copies). But when it was set on device, together with two other prefs, the
+// result was total decode failure ("could not be decoded" x5). It gets tested ALONE
+// before it is ever baked.
 
 // ============================================================================
 // VARAN DEVICE-TEST GPU ACTIVATION (baked so the tester need not hand-set them).
