@@ -1449,6 +1449,21 @@ pref("gfx.content.azure.backends", "skia,cairo");
 // !! Judgement call, not a proven fix -- see the config.mk comment. Revert both together.
 pref("javascript.options.main_thread_stack_quota_cap", 3670016);
 
+// A4. Cycle collector slicing. goanna.js:1148 ships dom.cycle_collector.incremental=false (a
+// desktop-tuned Pale Moon choice), and it is live via sIncrementalCC, so every CC is ONE
+// unbounded main-thread block instead of 5 ms slices with 32 ms gaps. Independent review cut
+// the expected win (ScanRoots+CollectWhite is unsliceable anyway, slices grow to 40 ms, and CC
+// reverts to unlimited past 2 s) -- taken because it is free, not because it is large.
+// NOT device-isolated.
+pref("dom.cycle_collector.incremental", true);
+
+// A5. Content-sink event probe. all.js wraps pref("content.sink.pending_event_mode", 0) in
+// #ifndef XP_WIN, so Windows keeps the code default of 1, which does two win32k syscalls on
+// EVERY tree operation while parsing. Review graded this SMALL (bounded by tree-op count, and
+// the probe is skipped for the last op of each flush batch). Free, so taken.
+// NOT device-isolated.
+pref("content.sink.pending_event_mode", 0);
+
 // NOT SET, ON PURPOSE: media.hardware-video-decoding.force-enabled stays false.
 // The downstream path does look open now (gfxWindowsPlatform.cpp:383 skips
 // TextureSharingWorks because prefer-d3d9 is baked true; WMFVideoMFTManager.cpp:397
