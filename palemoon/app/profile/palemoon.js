@@ -517,13 +517,36 @@ pref("browser.bookmarks.max_backups",             10);
 // Scripts & Windows prefs
 pref("dom.disable_open_during_load",              true);
 pref("dom.max_chrome_script_run_time",            30);
-pref("dom.max_script_run_time",                   15);
+// Varan 2026-07-30 (device trip partE-pkg1): 15 -> 0 = the watchdog is OFF for content.
+// FACT, XPCJSContext.cpp:1265-1270 -- `limit = Preferences::GetInt("dom.max_script_run_time")`
+// then `if (limit == 0 || duration < limit/2.0) return true;`. So 0 disables it outright,
+// and 15 means the check fires after 15 s of CONTINUOUS script time (two halves of 7.5 s).
+//
+// This is the other half of the always_stop_slow_scripts pair below, and shipping only that
+// half swapped one failure for another: instead of KILLING YouTube's init script silently, the
+// browser now put up a MODAL "Warning: Unresponsive script" dialog over
+// kevlar_base_sync_mod_chunk and waited. The dialog blocks the main thread, so the page stalls
+// and PLAYING VIDEO STOPS behind it -- which is exactly what the device reported ("video
+// loaded first but it stopped with one error before ui loaded"), with the dialog in the
+// screenshot. Both configurations of the watchdog break this device; the mechanism itself is
+// the problem, because 15 s of script is NORMAL here when a whole page load is 23-135 s.
+//
+// TRADE, stated: a genuinely runaway script can no longer be interrupted from inside the
+// browser; recovery is closing the window / ending the process. Accepted because we KNOW
+// legitimate scripts exceed any threshold we could pick, and a wrong threshold reintroduces
+// the exact modal stall we are removing. Chrome scripts keep their 30 s limit above -- a
+// hang in OUR OWN chrome JS is a bug we want to see, not one to suppress.
+pref("dom.max_script_run_time",                   0);
 // Automatically terminate non-responsive scripts if script_run_time expires.
 // Varan 2026-07-30: was true (silent kill, no prompt -- nsGlobalWindow.cpp:11322 returns
 // KillSlowScript immediately). Set to the PLATFORM DEFAULT of false so the user gets a
 // prompt instead. On VENICE a page load is 23-135 s, so the ~7.5 s threshold (half of
 // max_script_run_time, checked twice) was truncating YouTube's init scripts.
 // DEVICE-CONFIRMED: with this false the YouTube UI loads fully.
+// NB with max_script_run_time now 0 this pref is belt-and-braces: the callback returns early
+// before ShowSlowScriptDialog is ever reached. Kept because it is the correct value on its own
+// merits, and because it is what makes the behaviour a prompt rather than a kill if anyone
+// ever restores a nonzero limit.
 pref("dom.always_stop_slow_scripts",              false);
 
 pref("javascript.options.showInConsole",          true);
