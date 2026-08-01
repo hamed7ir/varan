@@ -558,7 +558,21 @@ pref("general.warnOnAboutConfig",                 false);
 pref("browser.ghostbuster.enabled",               true);
 // Disable GC on memory pressure, avoid incessant recycling when websites
 // misbehave. Should also avoid spurious GCs during ghostbusting.
-pref("javascript.options.gc_on_memory_pressure",  false);
+//
+// VARAN B4 (2026-08-01): FLIPPED TO true FOR ARM32. This deliberately overrides the
+// Pale Moon decision above, so the reasoning is recorded rather than assumed.
+//   WHY: on Windows RT this is a 2 GB process with NO automatic low-memory warning at
+//   all -- AvailableMemoryTracker is _M_IX86-gated, so the 24 automatic consumers of
+//   the memory-pressure notification are inert on ARM32. Upstream ships true; the app
+//   turned it off to avoid GC churn from a signal that, here, almost never arrives.
+//   BLAST RADIUS IS SMALL AND MEASURED: review-4 A5 found the signal never fires
+//   automatically on ARM32 -- only 3 of 9 explicit firing sites are live -- so the
+//   "incessant recycling" this pref was disabled to prevent cannot happen at the
+//   frequency it was disabled for. What it buys is that when pressure IS signalled,
+//   we actually collect instead of walking into an OOM with no warning.
+//   THIS IS OOM ROBUSTNESS, NOT SPEED. Do not expect it to help page load.
+//   REVERT: set this back to false. One line, no rebuild dependency beyond the pref file.
+pref("javascript.options.gc_on_memory_pressure",  true);
 // Use the stub implementation of the WeakRef API to not expose GC internals
 // to web content unnecessarily. This is fully within spec that makes no
 // guarantees about GC being triggered or finalization callbacks being made.
@@ -1502,6 +1516,22 @@ pref("content.sink.pending_event_mode", 0);
 // zero CPU copies). But when it was set on device, together with two other prefs, the
 // result was total decode failure ("could not be decoded" x5). It gets tested ALONE
 // before it is ever baked.
+//
+// VARAN B2 (2026-08-01): THE ALONE-TEST IS NOW STAGED, AND THIS STAYS false.
+// The Track B trip ships a SECOND fresh profile whose user.js sets ONLY this pref,
+// so it differs from the baseline profile in exactly one variable -- which is what
+// "tested ALONE" requires, and what the earlier three-pref attempt could not give.
+// It is deliberately NOT baked here: the trip's PRIORITY is the B1 InvalidStateError
+// capture, and B1 needs video to play far enough to throw. Baking a pref with a
+// recorded history of TOTAL decode failure into the baseline profile would risk
+// destroying the priority measurement to obtain a secondary one.
+// If the isolated profile shows hardware decode working, bake it then.
+// Chain, for whoever runs it: media.hardware-video-decoding.enabled (all.js:378, true)
+//   && media.windows-media-foundation.use-dxva (true) && gfxInfo FEATURE_STATUS
+//   -> (status==OK || force-enabled) -> sLayersSupportsHardwareVideoDecoding
+//   -> gfxVars::CanUseHardwareVideoDecoding -> sDXVAEnabled (WMFDecoderModule.cpp:52)
+//   -> aDXVAEnabled -> mDXVAEnabled -> the gate at WMFVideoMFTManager.cpp:392.
+// The failure reason is already plumbed: mDXVAFailureReason surfaces in about:support.
 
 // ============================================================================
 // VARAN DEVICE-TEST GPU ACTIVATION (baked so the tester need not hand-set them).
