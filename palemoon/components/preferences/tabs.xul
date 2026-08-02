@@ -38,6 +38,11 @@
       <!-- Varan: bottom chrome layout -->
       <preference id="browser.varan.layout.tabsAtBottom"   name="browser.varan.layout.tabsAtBottom"   type="bool"/>
       <preference id="browser.varan.layout.navbarAtBottom" name="browser.varan.layout.navbarAtBottom" type="bool"/>
+      <preference id="browser.varan.layout.bookmarksAtBottom" name="browser.varan.layout.bookmarksAtBottom" type="bool"/>
+      <preference id="browser.varan.layout.hideBookmarksBar"  name="browser.varan.layout.hideBookmarksBar"  type="bool"/>
+      <preference id="browser.varan.accent.chrome"   name="browser.varan.accent.chrome"   type="bool"/>
+      <preference id="browser.varan.accent.tabs"     name="browser.varan.accent.tabs"     type="bool"/>
+      <preference id="browser.varan.accent.useDwm"   name="browser.varan.accent.useDwm"   type="bool"/>
 
       <preference id="browser.newtab.url"    name="browser.newtab.url"    type="string"/>
       <preference id="browser.newtab.myhome" name="browser.newtab.myhome" type="string"/>
@@ -48,7 +53,21 @@
 
     <!-- XXX flex below is a hack because wrapping checkboxes don't reflow
              properly; see bug 349098 -->
-    <vbox id="tabPrefsBox" align="start" flex="1">
+<!-- Varan: SCROLLABLE. Adding the layout/accent groups pushed the lower options
+     out of reach.
+     ⚠️ ALL THREE properties are needed and the first version shipped only two:
+       overflow-y   - produces the scrollbar
+       min-height:0 - stops a XUL box claiming its intrinsic minimum height
+       height       - an EXPLICIT height, not max-height, and NO flex="1".
+     ⚠️ `flex="1"` + `max-height` rendered the pane COMPLETELY EMPTY: a XUL box
+     is not a CSS block, its flex resolution ran against the max and resolved the
+     height to zero. An explicit height with no flex is the XUL idiom for a
+     fixed-size scrolling container, and it is what gives overflow something to
+     scroll against.
+     26em fits the device's 768px-tall display with the tab strip, buttons and
+     window chrome around it. -->
+    <vbox id="tabPrefsBox" align="start"
+          style="overflow-y: auto; overflow-x: hidden; height: 26em;">
       <checkbox id="linkTargeting" label="&newWindowsAsTabs.label;"
                 accesskey="&newWindowsAsTabs.accesskey;"
                 preference="browser.link.open_newwindow"
@@ -98,6 +117,21 @@
         <checkbox id="varanNavbarAtBottom" label="&varanNavbarAtBottom.label;"
                   accesskey="&varanNavbarAtBottom.accesskey;"
                   preference="browser.varan.layout.navbarAtBottom"/>
+        <checkbox id="varanBookmarksAtBottom" label="&varanBookmarksAtBottom.label;"
+                  preference="browser.varan.layout.bookmarksAtBottom"/>
+        <checkbox id="varanHideBookmarksBar" label="&varanHideBookmarksBar.label;"
+                  preference="browser.varan.layout.hideBookmarksBar"/>
+      </groupbox>
+
+      <groupbox id="varanAccentGroup" align="start">
+        <caption label="&varanAccent.label;"/>
+        <label>&varanLayoutRestartRequired.label;</label>
+        <checkbox id="varanAccentChrome" label="&varanAccentChrome.label;"
+                  preference="browser.varan.accent.chrome"/>
+        <checkbox id="varanAccentTabs" label="&varanAccentTabs.label;"
+                  preference="browser.varan.accent.tabs"/>
+        <checkbox id="varanAccentUseDwm" label="&varanAccentUseDwm.label;"
+                  preference="browser.varan.accent.useDwm"/>
       </groupbox>
 
       <hbox align="center">
@@ -105,15 +139,28 @@
         <menulist 
           id="newtabPage"
           preference="browser.newtab.choice"
-          oncommand="gNewtabUrl.writeNewtabUrl(event.target.value);">
+          oncommand="gNewtabUrl.writeNewtabUrl(event.target.value); gTabsPane.syncNewtabCustom();">
           <menupopup>
-            <menuitem label="&newtabPage.custom.label;"    value="0" id="newtabPageCustom" hidden="true" />
+            <!-- Varan: was hidden="true". Upstream only ever REFLECTED a custom
+                 browser.newtab.url set from about:config; it could not be chosen,
+                 and choosing it gave a blank page because nothing supplies a URL.
+                 Now selectable, with the input field below. -->
+            <menuitem label="&newtabPage.custom.label;"    value="0" id="newtabPageCustom" />
             <menuitem label="&newtabPage.blank.label;"     value="1" />
             <menuitem label="&newtabPage.home.label;"      value="2" />
             <menuitem label="&newtabPage.myhome.label;"    value="3" />
             <menuitem label="&newtabPage.quickdial.label;" value="4" />
           </menupopup>
         </menulist>
+      </hbox>
+
+      <!-- Varan: the missing half of "A custom URL". Shown only for that choice,
+           bound straight to browser.newtab.url (what the page actually opens), so
+           there is no second copy of the value that can drift. -->
+      <hbox align="center" id="newtabCustomBox" hidden="true">
+        <label control="newtabCustomUrl" value="&newtabPage.custom.url.label;"/>
+        <textbox id="newtabCustomUrl" flex="1" type="url"
+                 preference="browser.newtab.url"/>
       </hbox>
     </vbox>
 

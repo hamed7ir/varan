@@ -85,5 +85,22 @@ var gTabsPane = {
       document.getElementById("newtabPageCustom").hidden = false;
     }
     gNewtabUrl.newtabUrlChoiceIsSet = true;
+    this.syncNewtabCustom();
+  }
+,
+
+  /**
+   * Varan: show the custom-URL field only for the "A custom URL" choice (0).
+   * Called from init and from the menulist's oncommand, so the field appears the
+   * moment the choice is made rather than only after reopening Preferences.
+   */
+  syncNewtabCustom: function() {
+    try {
+      let list = document.getElementById("newtabPage");
+      let box  = document.getElementById("newtabCustomBox");
+      if (list && box) {
+        box.hidden = (String(list.value) !== "0");
+      }
+    } catch (e) {}
   }
 };

@@ -42,3 +42,10 @@
 <!ENTITY varanTabsAtBottom.accesskey        "b">
 <!ENTITY varanNavbarAtBottom.label          "Show the address bar at the bottom of the window">
 <!ENTITY varanNavbarAtBottom.accesskey      "a">
+<!ENTITY varanBookmarksAtBottom.label       "Show the bookmarks toolbar at the bottom of the window">
+<!ENTITY varanAccent.label                  "Accent colour">
+<!ENTITY varanAccentChrome.label            "Use the accent colour on the toolbars">
+<!ENTITY varanAccentTabs.label              "Use the accent colour on the tab bar and the active tab">
+<!ENTITY varanAccentUseDwm.label            "Match the window frame colour instead of the picked accent colour">
+<!ENTITY newtabPage.custom.url.label        "URL:">
+<!ENTITY varanHideBookmarksBar.label        "Hide the bookmarks toolbar">

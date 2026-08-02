@@ -54,8 +54,15 @@ var VaranLayout = {
     }
   },
 
-  get navbarAtBottom() { return this._getBool(this.PREF_NAVBAR); },
-  get tabsAtBottom()   { return this._getBool(this.PREF_TABS); },
+  PREF_BOOKMARKS:   "browser.varan.layout.bookmarksAtBottom",
+  PREF_ACC_CHROME:  "browser.varan.accent.chrome",
+  PREF_ACC_TABS:    "browser.varan.accent.tabs",
+  PREF_ACC_DWM:     "browser.varan.accent.useDwm",
+  PREF_HIDE_BM:     "browser.varan.layout.hideBookmarksBar",
+
+  get navbarAtBottom()    { return this._getBool(this.PREF_NAVBAR); },
+  get tabsAtBottom()      { return this._getBool(this.PREF_TABS); },
+  get bookmarksAtBottom() { return this._getBool(this.PREF_BOOKMARKS); },
 
   /**
    * Move the requested toolbars into #browser-bottombox.
@@ -74,7 +81,23 @@ var VaranLayout = {
     try {
       let navbarAtBottom = this.navbarAtBottom;
       let tabsAtBottom   = this.tabsAtBottom;
-      if (!navbarAtBottom && !tabsAtBottom) {
+      let bmAtBottom     = this.bookmarksAtBottom;
+
+      // The accent attributes are independent of placement -- tab accent is
+      // wanted with tabs at the TOP too -- so they are stamped before the
+      // early-out, not inside the relocation branches.
+      let root = document.getElementById("main-window");
+      if (root) {
+        if (this._getBool(this.PREF_ACC_CHROME)) root.setAttribute("varan-accent-chrome", "true");
+        if (this._getBool(this.PREF_ACC_TABS))   root.setAttribute("varan-accent-tabs", "true");
+      }
+
+      // Hiding is independent of placement, so it runs before the early-out.
+      // `collapsed` is the same attribute View > Toolbars toggles, so the two
+      // agree rather than fight: this just sets the startup state.
+      this._setCollapsed("PersonalToolbar", this._getBool(this.PREF_HIDE_BM));
+
+      if (!navbarAtBottom && !tabsAtBottom && !bmAtBottom) {
         return;
       }
 
@@ -108,10 +131,34 @@ var VaranLayout = {
           win.setAttribute("varan-navbar", "bottom");
         }
       }
+
+      // Bookmarks last, so it lands between the address bar and the status bar
+      // -- the order the bars appear in reading position from the page down.
+      if (bmAtBottom) {
+        let bm = document.getElementById("PersonalToolbar");
+        if (bm) {
+          this._relocate(bm, bottombox, addonBar);
+          win.setAttribute("varan-bookmarks", "bottom");
+        }
+      }
     } catch (e) {
       Components.utils.reportError("VaranLayout.applyEarly failed, chrome " +
                                    "layout left as shipped: " + e);
     }
+  },
+
+  _setCollapsed: function(aId, aHide) {
+    try {
+      let el = document.getElementById(aId);
+      if (!el) return;
+      if (aHide) {
+        el.setAttribute("collapsed", "true");
+      }
+      // Deliberately NOT an else-branch that un-collapses: #addon-bar ships
+      // collapsed="true" by default and the user may have hidden either bar from
+      // View > Toolbars. Forcing them visible when the pref is off would override
+      // a choice made elsewhere in the UI.
+    } catch (e) {}
   },
 
   _relocate: function(aToolbar, aBottombox, aBefore) {
@@ -136,12 +183,109 @@ var VaranLayout = {
    */
   applyLate: function() {
     try {
-      if ((this.navbarAtBottom || this.tabsAtBottom) &&
+      if ((this.navbarAtBottom || this.tabsAtBottom || this.bookmarksAtBottom) &&
           typeof TabsInTitlebar == "object" && TabsInTitlebar) {
         TabsInTitlebar.allowedBy("varan-bottom-layout", false);
+      }
+      if (this._getBool(this.PREF_ACC_CHROME) || this._getBool(this.PREF_ACC_TABS)) {
+        this._applySystemAccent();
       }
     } catch (e) {
       Components.utils.reportError("VaranLayout.applyLate: " + e);
     }
+  },
+
+  // ACCENT FROM PAGE was implemented and REMOVED: it never took effect on device
+  // and could not be diagnosed without a debuggable build there. Shipping a
+  // checkbox that does nothing is worse than not offering it. The accent
+  // plumbing is source-agnostic (everything reads --varan-accent), so it can be
+  // reinstated later by populating that variable from a different source.,
+
+  /**
+   * Read the user's Windows accent colour and publish it as --varan-accent.
+   *
+   * WHY NOT -moz-win-accentcolor: that system colour and the
+   * @media (-moz-windows-accent-color-applies) query gating it are WINDOWS-10-ERA.
+   * On Windows 8.1 the query never matches, so a stylesheet written against it is
+   * completely inert -- which is what shipped first, and why no accent appeared
+   * anywhere. A media query that never matches is indistinguishable from correct
+   * CSS: no error, no warning, just nothing.
+   *
+   * WINDOWS EXPOSES TWO COLOURS AND THEY NEED NOT MATCH -- the device owner saw
+   * both on screen at once:
+   *   ColorizationColor  ARGB  what the window frame / titlebar is tinted with
+   *   AccentColor        ABGR  the accent picked in Personalisation
+   * Which to follow is therefore a preference, not a bug.
+   *
+   * AND THE ACCENT KEY MOVED BETWEEN RELEASES (carried from the TelegArm project,
+   * which hit this and logged it): reading the Windows 10 key on 8.1 silently
+   * returns nothing and falls back to blue, so it presents as "accent is broken"
+   * rather than "wrong key".
+   */
+  _readSystemAccent: function() {
+    try {
+      let useDwm = this._getBool(this.PREF_ACC_DWM);
+      let major = 6;
+      try {
+        let v = Components.classes["@mozilla.org/system-info;1"]
+                  .getService(Components.interfaces.nsIPropertyBag2)
+                  .getProperty("version");          // "6.3" = 8.1, "10.0" = Win10
+        major = parseInt(String(v).split(".")[0], 10) || 6;
+      } catch (e) {}
+
+      let path, name;
+      if (useDwm) {
+        path = "Software\\Microsoft\\Windows\\DWM";
+        name = "ColorizationColor";
+      } else if (major >= 10) {
+        path = "Software\\Microsoft\\Windows\\DWM";
+        name = "AccentColor";
+      } else {
+        path = "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Accent";
+        name = "AccentColor";
+      }
+
+      let key = Components.classes["@mozilla.org/windows-registry-key;1"]
+                  .createInstance(Components.interfaces.nsIWindowsRegKey);
+      key.open(key.ROOT_KEY_CURRENT_USER, path, key.ACCESS_READ);
+      let raw;
+      try {
+        if (!key.hasValue(name)) { key.close(); return null; }
+        raw = key.readIntValue(name);
+      } finally {
+        key.close();
+      }
+      if (raw === null || raw === undefined) return null;
+
+      let r, g, b;
+      if (useDwm) {
+        r = (raw >> 16) & 0xFF; g = (raw >> 8) & 0xFF; b = raw & 0xFF;   // ARGB
+      } else {
+        r = raw & 0xFF; g = (raw >> 8) & 0xFF; b = (raw >> 16) & 0xFF;   // ABGR
+      }
+
+      // Foreground from relative luminance, so text stays readable on a LIGHT
+      // accent instead of assuming white.
+      let lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return { bg: "rgb(" + r + "," + g + "," + b + ")",
+               fg: lum > 0.6 ? "black" : "white" };
+    } catch (e) {
+      return null;
+    }
+  },
+
+  _applySystemAccent: function() {
+    try {
+      let root = document.getElementById("main-window");
+      if (!root) return;
+      let a = this._readSystemAccent();
+      if (a) {
+        root.style.setProperty("--varan-accent", a.bg);
+        root.style.setProperty("--varan-accent-text", a.fg);
+        // Only now may the accent rules fire. Without this they could apply with
+        // an undefined variable and paint bars in whatever `initial` resolves to.
+        root.setAttribute("varan-accent-ok", "true");
+      }
+    } catch (e) {}
   }
 };

@@ -490,6 +490,27 @@ pref("browser.tabs.onTop", false);
 // rather than promising a live reflow it cannot deliver.
 pref("browser.varan.layout.navbarAtBottom", false);
 pref("browser.varan.layout.tabsAtBottom", false);
+pref("browser.varan.layout.bookmarksAtBottom", false);
+
+// Hide either bar outright, wherever it sits. These set the same `collapsed`
+// attribute that View > Toolbars toggles, so the two mechanisms agree. Turning a
+// pref back off does NOT force the bar visible -- that would override a choice
+// made from the Toolbars menu.
+pref("browser.varan.layout.hideBookmarksBar", false);
+
+// Varan -- ACCENT. Reuses the SAME system colour the titlebar already uses
+// (-moz-win-accentcolor), so top and bottom agree by construction. All of it is
+// gated on @media (-moz-windows-accent-color-applies) and :not(:-moz-lwtheme),
+// so a user with accent-on-titlebar off gets system colours, and an installed
+// Pale Moon theme always wins.
+pref("browser.varan.accent.chrome", false);
+pref("browser.varan.accent.tabs", false);
+// WHICH system colour to follow. Windows exposes TWO and they need not match:
+//   false -> Explorer\Accent\AccentColor (8.1) / DWM\AccentColor (10+), the
+//            accent the user picks in Personalisation. ABGR.
+//   true  -> DWM\ColorizationColor, what the window frame/titlebar is tinted
+//            with. ARGB. Pick this to match the titlebar exactly.
+pref("browser.varan.accent.useDwm", false);
 #ifdef XP_WIN
 pref("browser.tabs.drawInTitlebar", true);
 #else
@@ -1211,8 +1232,14 @@ pref("prompts.tab_modal.enabled", true);
 pref("prompts.tab_modal.focusSwitch", true);
 
 // Defines the url to be used for new tabs.
-pref("browser.newtab.url", "about:logopage");
-pref("browser.newtab.choice", 1);
+// Varan: a new tab opens QUICK DIAL, not the logo page.
+// BOTH prefs must agree: newtaburl.js getNewtabChoice() derives the menu
+// selection back FROM the url, so setting only `choice` would show Quickdial
+// selected while still opening the old page (and vice versa).
+//   choice 4  <-> url about:newtab  = the Quickdial page   (newtaburl.js case 4)
+//   choice 1  <-> url about:logopage = "A blank page"      (upstream default)
+pref("browser.newtab.url", "about:newtab");
+pref("browser.newtab.choice", 4);
 
 // Activates preloading of the new tab url.
 pref("browser.newtab.preload", false);

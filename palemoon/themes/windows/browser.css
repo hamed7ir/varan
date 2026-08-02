@@ -12,24 +12,23 @@
 %define toolbarShadowColor rgba(10%,10%,10%,.4)
 %define toolbarShadowOnTab linear-gradient(to top, rgba(10%,10%,10%,.4) 1px, transparent 1px)
 %define navbarTextboxCustomBorder border-color: rgba(0,0,0,.32);
-/* Varan: these three were anchored on the TOOLBOX --
- *   #navigator-toolbox[iconsize=large][mode=icons] > #nav-bar
- * -- which stops matching entirely the moment #nav-bar is moved to the bottom
- * of the window, silently reverting button metrics across 42 rules.
+/* ⚠️ DO NOT RE-ANCHOR THESE ON #nav-bar. That was tried and it REGRESSED THE
+ * DEFAULT LAYOUT on device (2026-08-01): toolbar buttons lost their backgrounds
+ * and the bookmarks row lost its spacing.
  *
- * Re-anchored on the TOOLBAR so they hold in either position. This is exact,
- * not an approximation: iconsize and mode are maintained ON THE TOOLBAR
- * ELEMENT ITSELF by retrieveToolbarIconsizesFromTheme() (browser.js), which
- * explicitly iterates gNavToolbox.externalToolbars as well as its childNodes --
- * and a relocated toolbar joins externalToolbars through its toolboxid. #nav-bar
- * also carries mode="icons" iconsize="large" in browser.xul from the start.
+ * The reason is SPECIFICITY, not matching. `#navigator-toolbox[...] > #nav-bar`
+ * carries TWO ids; `#nav-bar[...]` carries one. Competing rules that lose to the
+ * two-id form win against the one-id form, so the 42 interpolated rules were
+ * silently outranked even where they still matched. Restored verbatim.
  *
- * These must stay SINGLE selector chains with no commas: they are interpolated
- * into larger selectors at 42 call sites, several of which append combinators. */
-%define navbarLargeIcons #nav-bar[iconsize=large][mode=icons]
+ * The bottom-layout equivalents live in the Varan block further down, written as
+ * separate rules rather than by widening these -- a relocated #nav-bar simply
+ * does not have a #navigator-toolbox ancestor, and no edit to these can change
+ * that without costing the default layout its specificity. */
+%define navbarLargeIcons #navigator-toolbox[iconsize=large][mode=icons] > #nav-bar
 %define forwardTransitionLength 150ms
-%define conditionalForwardWithUrlbar window:not([chromehidden~=toolbar]) :-moz-any(#nav-bar[iconsize=large][mode=icons][currentset*="unified-back-forward-button"],#nav-bar[iconsize=large][mode=icons]:not([currentset])) > #unified-back-forward-button
-%define conditionalForwardWithUrlbar2 window:not([chromehidden~=toolbar]) :-moz-any(#nav-bar[iconsize=large][mode=icons][currentset*="unified-back-forward-button"]:not([currentset*="unified-back-forward-button,urlbar-container"]),#nav-bar[iconsize=large][mode=icons]:not([currentset])) > #unified-back-forward-button
+%define conditionalForwardWithUrlbar window:not([chromehidden~=toolbar]) #navigator-toolbox[iconsize=large][mode=icons] > :-moz-any(#nav-bar[currentset*="unified-back-forward-button"],#nav-bar:not([currentset])) > #unified-back-forward-button
+%define conditionalForwardWithUrlbar2 window:not([chromehidden~=toolbar]) #navigator-toolbox[iconsize=large][mode=icons] > :-moz-any(#nav-bar[currentset*="unified-back-forward-button"]:not([currentset*="unified-back-forward-button,urlbar-container"]),#nav-bar:not([currentset])) > #unified-back-forward-button
 %define conditionalForwardWithUrlbarWidth 27
 %define glassActiveBorderColor rgb(37, 44, 51)
 %define glassInactiveBorderColor rgb(102, 102, 102)
@@ -177,12 +176,52 @@
 /* ::::: Varan -- bottom nav-bar / tab-strip placement ::::: */
 
 /* The toolbar surface is painted by `#navigator-toolbox > toolbar` above, a
- * direct-child rule that a relocated bar no longer matches. Restore it. */
-#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar:not(:-moz-lwtheme),
-#main-window[varan-tabs="bottom"] #browser-bottombox > #TabsToolbar:not(:-moz-lwtheme) {
+ * direct-child rule that a relocated bar no longer matches. Restore it.
+ *
+ * ⚠️ ONLY WHEN ACCENT IS OFF. This selector carries THREE ids (#main-window,
+ * #browser-bottombox, #TabsToolbar) while the accent rules carry two, so without
+ * the :not() below it OUTRANKS them and repaints the relocated bar -moz-Dialog --
+ * which is exactly why the bottom tab strip stayed white while everything around
+ * it was correctly accented. Specificity, not a missing rule. */
+#main-window[varan-navbar="bottom"]:not([varan-accent-chrome]) #browser-bottombox > #nav-bar:not(:-moz-lwtheme),
+#main-window[varan-tabs="bottom"]:not([varan-accent-chrome]) #browser-bottombox > #TabsToolbar:not(:-moz-lwtheme) {
   appearance: none;
   border-style: none;
   background-color: -moz-Dialog;
+}
+
+/* INPUT FIELDS: the address bar and the search bar take a PALE wash of the same
+ * accent rather than the full colour -- they must stay obviously editable, and a
+ * saturated field with dark text is unreadable.
+ *
+ * Built as an opaque colour with a translucent white layer ON TOP, because this
+ * engine has no color-mix()/relative-colour syntax; the overlay is what produces
+ * the tint. Keyed on the elements, not on where they live, so it holds in either
+ * position. Deliberately no `color` override: the field keeps the system text
+ * colour, which stays readable against a ~85%-white wash of any accent. */
+/* ⚠️ THE OUTER FIELD ONLY. v1 also tinted .urlbar-input-box / .searchbar-textbox,
+ * so on the address bar the translucent overlay composited over ITSELF and came
+ * out visibly darker and more saturated than the search bar, which only had one
+ * layer. Tint once on the container, then force the inner boxes transparent so a
+ * theme's own field background cannot reintroduce the second layer. */
+#main-window[varan-accent-ok][varan-accent-chrome] #urlbar:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #searchbar:not(:-moz-lwtheme) {
+  background-color: var(--varan-accent) !important;
+  background-image: linear-gradient(rgba(255,255,255,.88), rgba(255,255,255,.88)) !important;
+}
+
+#main-window[varan-accent-ok][varan-accent-chrome] #urlbar .urlbar-input-box:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #urlbar .urlbar-textbox-container:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #searchbar .searchbar-textbox:not(:-moz-lwtheme) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* With accent ON the relocated bars still need the appearance reset -- just not
+ * the colour, which comes from --varan-accent. */
+#main-window[varan-accent-chrome] #browser-bottombox > toolbar:not(:-moz-lwtheme) {
+  appearance: none;
+  border-style: none;
 }
 
 /* Seams point the wrong way at the bottom of a window: the toolbox draws its
@@ -203,18 +242,140 @@
 #main-window[varan-tabs="bottom"] .tabbrowser-tab,
 #main-window[varan-tabs="bottom"] .tabs-newtab-button {
   border-radius: 0 0 var(--tab-border-radius) var(--tab-border-radius);
-  background: linear-gradient(to bottom, @toolbarShadowColor@ 1px, transparent 1px),
-              var(--tab-background),
-              linear-gradient(-moz-dialog, -moz-dialog);
+  /* background-IMAGE, never the `background` shorthand: the shorthand's opaque
+   * linear-gradient(-moz-dialog,...) layer paints straight over the accent
+   * colour, which is why bottom tabs came back grey while the strip behind them
+   * was correctly accented. */
+  background-image: linear-gradient(to bottom, @toolbarShadowColor@ 1px, transparent 1px),
+                    var(--tab-background);
   background-clip: padding-box;
 }
 
 /* O-5: no touch mode exists in this vintage (browser.touchmode / ui.click_hold
  * are absent), so a bottom bar meant for thumbs on a Surface RT needs its hit
  * targets set explicitly or it stays finger-hostile. */
-#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar toolbarbutton,
-#main-window[varan-tabs="bottom"] #browser-bottombox > #TabsToolbar .tabbrowser-tab {
+#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar toolbarbutton {
   min-height: 40px;
+}
+
+/* Bottom tabs keep the SAME metrics as top tabs. Deliberately no second set of
+ * numbers: two independent sizings drift apart the moment either is touched. */
+#main-window[varan-tabs="bottom"] #browser-bottombox > #TabsToolbar {
+  min-height: 0;
+}
+
+/* ============================ VARAN ACCENT ============================
+ *
+ * The top bars are accented because #main-window is painted -moz-win-accentcolor
+ * (see the @media (-moz-windows-accent-color-applies) block further down) and the
+ * toolbox above the page is transparent, so the window background shows through.
+ * A bar moved to the BOTTOM sits over #browser-bottombox, which paints itself
+ * -moz-dialog -- which is why the relocated bars came out grey.
+ *
+ * So accent is NOT a colour we invent: it is the SAME system colour the titlebar
+ * already uses. Reading it rather than matching it is what makes top and bottom
+ * agree by construction instead of by luck.
+ *
+ * THREE GUARDS, all load-bearing:
+ *   @media (-moz-windows-accent-color-applies)  -- the user may have accent-on-
+ *       titlebar switched off in Windows; then nothing here applies and the bars
+ *       stay in system colours, which is correct rather than a bug.
+ *   :not(:-moz-lwtheme)  -- an installed Pale Moon theme/persona MUST win. This
+ *       is the whole "be aware of themes" requirement, and it is free because it
+ *       is already this file's convention.
+ *   :not(:-moz-window-inactive)  -- Windows dims the accent on an inactive
+ *       window; matching that keeps us consistent with the titlebar.
+ */
+/* ⚠️ NOT wrapped in @media (-moz-windows-accent-color-applies). That query and
+ * -moz-win-accentcolor are WINDOWS-10-ERA: on Windows 8.1 the query never
+ * matches, so a stylesheet written against it is completely inert. That is
+ * exactly what shipped first and why no accent appeared in either position.
+ *
+ * Instead VaranLayout reads the accent from the registry (branching 8.1 vs 10 --
+ * the key differs, see varan-layout.js) and publishes --varan-accent. The
+ * [varan-accent-ok] attribute is set ONLY when a colour was actually obtained,
+ * so these rules cannot fire with an undefined variable and leave a bar painted
+ * in whatever `initial` happens to be.
+ *
+ * :not(:-moz-lwtheme) is kept on every rule: an installed Pale Moon persona must
+ * always win. That is the "be aware of themes" requirement. */
+
+/* --- chrome accent: whichever bars are at the bottom, PLUS the status bar.
+ * The status bar is included deliberately -- an accented address bar sitting on
+ * a grey status strip directly beneath it was the specific thing that looked
+ * unfinished. #status-bar is a child of #addon-bar, so both are named. */
+/* TOP bars too. One option governs the whole window: with this on, the toolbox
+ * and the titlebar strip follow the SAME --varan-accent as the bottom bars, so
+ * the user picks DWM-frame-colour or picked-accent ONCE and everything agrees.
+ * Previously the top followed DWM glass while the bottom followed the registry
+ * accent, which is why two different purples appeared on screen at once.
+ *
+ * #main-window is included because in tabs-in-titlebar mode the window
+ * background is what shows through the caption strip.
+ *
+ * NOT COVERED, and it cannot be: the OS-drawn caption BUTTONS (minimise /
+ * maximise / close) are painted by DWM outside our window content. CSS cannot
+ * reach them, so on a strongly contrasting accent they stay frame-coloured. */
+#main-window[varan-accent-ok][varan-accent-chrome]:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #titlebar:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #titlebar-content:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #navigator-toolbox:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #navigator-toolbox > toolbar:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #browser-bottombox:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #browser-bottombox > toolbar:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #browser-bottombox #status-bar:not(:-moz-lwtheme),
+#main-window[varan-accent-ok][varan-accent-chrome] #browser-bottombox statusbarpanel:not(:-moz-lwtheme) {
+  background-color: var(--varan-accent);
+  background-image: none;
+  color: var(--varan-accent-text);
+}
+
+/* --- tab-bar accent, in EITHER position: keyed on the strip, not on where it
+ * sits, so it applies with tabs on top too. */
+#main-window[varan-accent-ok][varan-accent-tabs] #TabsToolbar:not(:-moz-lwtheme) {
+  background-color: var(--varan-accent);
+  background-image: none;
+}
+
+/* --- the ACTIVE tab carries the accent; background tabs recede. Without this an
+ * accented strip makes every tab look selected. */
+#main-window[varan-accent-ok][varan-accent-tabs] .tabbrowser-tab[selected="true"]:not(:-moz-lwtheme) {
+  background-color: var(--varan-accent) !important;
+  background-image: none !important;
+  color: var(--varan-accent-text) !important;
+}
+/* Background tabs: a translucent wash of the SAME accent, so the strip reads as
+ * one surface in either position. `transparent` alone let the toolbar show
+ * through unevenly once the strip itself was accented. */
+#main-window[varan-accent-ok][varan-accent-tabs] .tabbrowser-tab:not([selected="true"]):not(:-moz-lwtheme) {
+  background-color: var(--varan-accent) !important;
+  background-image: linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)) !important;
+  color: var(--varan-accent-text) !important;
+}
+
+/* --- bookmarks toolbar, wherever it is, when chrome accent is on. */
+#main-window[varan-accent-ok][varan-accent-chrome] #PersonalToolbar:not(:-moz-lwtheme) {
+  background-color: var(--varan-accent);
+  background-image: none;
+  color: var(--varan-accent-text);
+}
+
+/* --- ACCENT FROM PAGE needs no rules of its own: VaranLayout simply substitutes
+ * a different value into --varan-accent from the page's <meta name="theme-color">
+ * and keeps [varan-accent-ok] set. One styling path, two possible sources. */
+
+/* --- the relocated #nav-bar loses the 42 @navbarLargeIcons@ rules, which are
+ * anchored on a #navigator-toolbox ancestor it no longer has. Restore the part
+ * that is actually visible: the button surface. */
+#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar toolbarbutton:not([disabled]) {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar toolbarbutton:not([disabled]):hover {
+  background-color: rgba(255,255,255,.25);
+  border-color: rgba(255,255,255,.35);
 }
 
 /* ::::: app menu button ::::: */

@@ -11,9 +11,5 @@
     <DT><H3 PERSONAL_TOOLBAR_FOLDER="true" ID="rdf:#$FvPhC3">@bookmarks_toolbarfolder@</H3>
 <DD>@bookmarks_toolbarfolder_description@
     <DL><p>
-        <DT><A HREF="http://www.palemoon.org/" ICON_URI="http://www.palemoon.org/favicon.ico">Pale Moon</A>
-        <DT><A HREF="https://forum.palemoon.org/index.php" ICON_URI="https://forum.palemoon.org/favicon.ico" LAST_CHARSET="UTF-8">Pale Moon forum</A>
-        <DT><A HREF="https://forum.palemoon.org/viewforum.php?f=24" ICON_URI="http://www.palemoon.org/favicon.ico">F.A.Q.</A>
-        <DT><A HREF="http://www.palemoon.org/releasenotes.shtml" ICON_URI="http://www.palemoon.org/favicon.ico">Release notes</A>
     </DL><p>
 </DL><p>
