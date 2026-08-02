@@ -12,10 +12,24 @@
 %define toolbarShadowColor rgba(10%,10%,10%,.4)
 %define toolbarShadowOnTab linear-gradient(to top, rgba(10%,10%,10%,.4) 1px, transparent 1px)
 %define navbarTextboxCustomBorder border-color: rgba(0,0,0,.32);
-%define navbarLargeIcons #navigator-toolbox[iconsize=large][mode=icons] > #nav-bar
+/* Varan: these three were anchored on the TOOLBOX --
+ *   #navigator-toolbox[iconsize=large][mode=icons] > #nav-bar
+ * -- which stops matching entirely the moment #nav-bar is moved to the bottom
+ * of the window, silently reverting button metrics across 42 rules.
+ *
+ * Re-anchored on the TOOLBAR so they hold in either position. This is exact,
+ * not an approximation: iconsize and mode are maintained ON THE TOOLBAR
+ * ELEMENT ITSELF by retrieveToolbarIconsizesFromTheme() (browser.js), which
+ * explicitly iterates gNavToolbox.externalToolbars as well as its childNodes --
+ * and a relocated toolbar joins externalToolbars through its toolboxid. #nav-bar
+ * also carries mode="icons" iconsize="large" in browser.xul from the start.
+ *
+ * These must stay SINGLE selector chains with no commas: they are interpolated
+ * into larger selectors at 42 call sites, several of which append combinators. */
+%define navbarLargeIcons #nav-bar[iconsize=large][mode=icons]
 %define forwardTransitionLength 150ms
-%define conditionalForwardWithUrlbar window:not([chromehidden~=toolbar]) #navigator-toolbox[iconsize=large][mode=icons] > :-moz-any(#nav-bar[currentset*="unified-back-forward-button"],#nav-bar:not([currentset])) > #unified-back-forward-button
-%define conditionalForwardWithUrlbar2 window:not([chromehidden~=toolbar]) #navigator-toolbox[iconsize=large][mode=icons] > :-moz-any(#nav-bar[currentset*="unified-back-forward-button"]:not([currentset*="unified-back-forward-button,urlbar-container"]),#nav-bar:not([currentset])) > #unified-back-forward-button
+%define conditionalForwardWithUrlbar window:not([chromehidden~=toolbar]) :-moz-any(#nav-bar[iconsize=large][mode=icons][currentset*="unified-back-forward-button"],#nav-bar[iconsize=large][mode=icons]:not([currentset])) > #unified-back-forward-button
+%define conditionalForwardWithUrlbar2 window:not([chromehidden~=toolbar]) :-moz-any(#nav-bar[iconsize=large][mode=icons][currentset*="unified-back-forward-button"]:not([currentset*="unified-back-forward-button,urlbar-container"]),#nav-bar[iconsize=large][mode=icons]:not([currentset])) > #unified-back-forward-button
 %define conditionalForwardWithUrlbarWidth 27
 %define glassActiveBorderColor rgb(37, 44, 51)
 %define glassInactiveBorderColor rgb(102, 102, 102)
@@ -158,6 +172,49 @@
 
 #browser-bottombox:not(:-moz-lwtheme) {
   background-color: -moz-dialog;
+}
+
+/* ::::: Varan -- bottom nav-bar / tab-strip placement ::::: */
+
+/* The toolbar surface is painted by `#navigator-toolbox > toolbar` above, a
+ * direct-child rule that a relocated bar no longer matches. Restore it. */
+#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar:not(:-moz-lwtheme),
+#main-window[varan-tabs="bottom"] #browser-bottombox > #TabsToolbar:not(:-moz-lwtheme) {
+  appearance: none;
+  border-style: none;
+  background-color: -moz-Dialog;
+}
+
+/* Seams point the wrong way at the bottom of a window: the toolbox draws its
+ * separator below itself and lifts a shadow upward. Flip both. */
+#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar,
+#main-window[varan-tabs="bottom"] #browser-bottombox > #TabsToolbar {
+  border-top: 1px solid var(--toolbox-after-color, ThreeDShadow);
+  border-bottom: none;
+  box-shadow: none;
+}
+
+/* Tabs are drawn to merge UPWARD into the toolbar above them: the curve is
+ * `var(--tab-border-radius) var(--tab-border-radius) 0 0` (rounded top, square
+ * bottom) and @toolbarShadowOnTab@ lays its 1px seam along the BOTTOM edge
+ * (`to top` puts the colour stop at the start of the gradient). At the bottom
+ * of the window there is nothing above to merge into, so both read upside
+ * down. Flip the curve and move the seam to the top edge. */
+#main-window[varan-tabs="bottom"] .tabbrowser-tab,
+#main-window[varan-tabs="bottom"] .tabs-newtab-button {
+  border-radius: 0 0 var(--tab-border-radius) var(--tab-border-radius);
+  background: linear-gradient(to bottom, @toolbarShadowColor@ 1px, transparent 1px),
+              var(--tab-background),
+              linear-gradient(-moz-dialog, -moz-dialog);
+  background-clip: padding-box;
+}
+
+/* O-5: no touch mode exists in this vintage (browser.touchmode / ui.click_hold
+ * are absent), so a bottom bar meant for thumbs on a Surface RT needs its hit
+ * targets set explicitly or it stays finger-hostile. */
+#main-window[varan-navbar="bottom"] #browser-bottombox > #nav-bar toolbarbutton,
+#main-window[varan-tabs="bottom"] #browser-bottombox > #TabsToolbar .tabbrowser-tab {
+  min-height: 40px;
 }
 
 /* ::::: app menu button ::::: */

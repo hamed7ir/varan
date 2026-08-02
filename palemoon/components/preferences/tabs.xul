@@ -35,6 +35,10 @@
       <preference id="browser.tabs.closeWindowWithLastTab"     name="browser.tabs.closeWindowWithLastTab"     type="bool"/>
       <preference id="browser.ctrlTab.previews"                name="browser.ctrlTab.previews"                type="bool"/>
       
+      <!-- Varan: bottom chrome layout -->
+      <preference id="browser.varan.layout.tabsAtBottom"   name="browser.varan.layout.tabsAtBottom"   type="bool"/>
+      <preference id="browser.varan.layout.navbarAtBottom" name="browser.varan.layout.navbarAtBottom" type="bool"/>
+
       <preference id="browser.newtab.url"    name="browser.newtab.url"    type="string"/>
       <preference id="browser.newtab.myhome" name="browser.newtab.myhome" type="string"/>
       <preference id="browser.newtab.choice" name="browser.newtab.choice" type="int"/>
@@ -79,6 +83,23 @@
                 preference="browser.tabs.closeWindowWithLastTab"/>
       <checkbox id="showTabPreviews" label="&showTabPreviews.label;"
                 preference="browser.ctrlTab.previews"/>
+<!-- Varan additions: bottom chrome layout.
+     Grouped with a restart notice, mirroring the Hardware Acceleration group in
+     advanced.xul, because the placement is applied while a browser window is
+     being built. Changing it affects newly opened windows; existing ones keep
+     the layout they were created with, so "restart" is the honest instruction
+     rather than a live reflow this cannot deliver. -->
+      <groupbox id="varanLayoutGroup" align="start">
+        <caption label="&varanLayout.label;"/>
+        <label>&varanLayoutRestartRequired.label;</label>
+        <checkbox id="varanTabsAtBottom" label="&varanTabsAtBottom.label;"
+                  accesskey="&varanTabsAtBottom.accesskey;"
+                  preference="browser.varan.layout.tabsAtBottom"/>
+        <checkbox id="varanNavbarAtBottom" label="&varanNavbarAtBottom.label;"
+                  accesskey="&varanNavbarAtBottom.accesskey;"
+                  preference="browser.varan.layout.navbarAtBottom"/>
+      </groupbox>
+
       <hbox align="center">
         <label value="&newtabPage.label;"/>
         <menulist 

@@ -116,6 +116,34 @@ toolbar[printpreview="true"] {
   -moz-box-ordinal-group: 10;
 }
 
+/* Varan: bottom nav-bar / tab-strip placement.
+ *
+ * VaranLayout.applyEarly() reparents the toolbars into #browser-bottombox and
+ * stamps #main-window. The stack has to be pinned HERE rather than left to DOM
+ * insertion order, because the two id-based rules above keep matching after the
+ * move -- #TabsToolbar would otherwise take ordinal 100 inside the bottombox and
+ * sink below the status bar. These selectors are id+attribute+id, so they
+ * outrank both.
+ *
+ * Bottom stack, top to bottom:
+ *   1 #global-notificationbox (default ordinal, stays closest to the page)
+ *   2 #TabsToolbar
+ *   3 #nav-bar
+ *   4 #addon-bar (status bar stays the last row)
+ */
+#main-window[varan-tabs="bottom"] #TabsToolbar {
+  -moz-box-ordinal-group: 2;
+}
+
+#main-window[varan-navbar="bottom"] #nav-bar {
+  -moz-box-ordinal-group: 3;
+}
+
+#main-window[varan-tabs="bottom"] #addon-bar,
+#main-window[varan-navbar="bottom"] #addon-bar {
+  -moz-box-ordinal-group: 4;
+}
+
 %ifdef MOZ_CAN_DRAW_IN_TITLEBAR
 #main-window[inFullscreen] > #titlebar,
 #main-window[inFullscreen] .titlebar-placeholder,

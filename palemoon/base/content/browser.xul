@@ -73,6 +73,11 @@
 #endif
 <script type="application/javascript" src="chrome://browser/content/nsContextMenu.js"/>
 
+# Varan: bottom nav-bar / tab-strip placement. Must be loaded here, at the top,
+# so that VaranLayout exists by the time the inline applyEarly() call at the end
+# of this file runs (see the comment there for why the call site is the end).
+<script type="application/javascript" src="chrome://browser/content/varan-layout.js"/>
+
 <script type="application/javascript" src="chrome://global/content/contentAreaUtils.js"/>
 
 <script type="application/javascript" src="chrome://browser/content/places/editBookmarkOverlay.js"/>
@@ -1040,5 +1045,18 @@
 #     Introducing the iframe dynamically, as needed, was found to be better than
 #     starting with an empty iframe here in browser.xul from a Ts standpoint.
 </deck>
+
+# Varan: apply the user's bottom nav-bar / tab-strip choice.
+#
+# The call site is DELIBERATELY here, at the end of the document, rather than in
+# gBrowserInit.onLoad. An inline script runs while the document is still being
+# parsed, so at this point every element above exists but frames have not been
+# constructed yet. Moving the toolbars now means they are only ever laid out in
+# their final position -- no visible re-flow when a window opens, and the tab
+# strip is never reframed after <tabbrowser> has bound to it.
+#
+# gBrowserInit.onLoad would be too late on both counts: its very first statement
+# already touches gBrowser.
+<script type="application/javascript">VaranLayout.applyEarly();</script>
 
 </window>

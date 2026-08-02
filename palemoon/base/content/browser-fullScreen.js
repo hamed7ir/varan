@@ -306,10 +306,29 @@ var FullScreen = {
     }, timeout);
   },
 
+  // Varan: the bottom-placed nav-bar / tab strip live in #browser-bottombox,
+  // OUTSIDE gNavToolbox, so the marginTop collapse below does not cover them and
+  // they would stay on screen in fullscreen. Mirror the same trick on the
+  // bottombox. Guarded on the layout attributes so the default layout keeps its
+  // current behaviour exactly -- upstream does not hide the bottombox, and a bare
+  // status bar vanishing in fullscreen would be a regression for everyone else.
+  _varanBottomBar: function() {
+    let root = document.documentElement;
+    if (!root.hasAttribute("varan-navbar") && !root.hasAttribute("varan-tabs")) {
+      return null;
+    }
+    return document.getElementById("browser-bottombox");
+  },
+
   showNavToolbox: function(trackMouse = true) {
     this._fullScrToggler.hidden = true;
     gNavToolbox.removeAttribute("fullscreenShouldAnimate");
     gNavToolbox.style.marginTop = "";
+
+    let bottombox = this._varanBottomBar();
+    if (bottombox) {
+      bottombox.style.marginBottom = "";
+    }
 
     if (!this._isChromeCollapsed) {
       return;
@@ -361,6 +380,14 @@ var FullScreen = {
 
     gNavToolbox.style.marginTop =
       -gNavToolbox.getBoundingClientRect().height + "px";
+
+    // Varan: same collapse for the bottom bars (see _varanBottomBar).
+    let bottombox = this._varanBottomBar();
+    if (bottombox) {
+      bottombox.style.marginBottom =
+        -bottombox.getBoundingClientRect().height + "px";
+    }
+
     this._isChromeCollapsed = true;
     gBrowser.mPanelContainer.removeEventListener("mousemove",
                                                  this._collapseCallback, false);

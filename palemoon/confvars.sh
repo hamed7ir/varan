@@ -15,6 +15,24 @@ MOZ_APP_VENDOR=Moonchild
 # "varan" so the binary is varan.exe. UA-safe: MOZ_APP_UA_NAME (below) is what the UA uses, not this.
 MOZ_APP_NAME=varan
 
+# Varan (rename): the PROFILE ROOT. Sets application.ini's "Profile" field, which
+# nsXREDirProvider.cpp:1523-1534 uses on Windows as
+#     Profile non-empty -> %APPDATA%\<Profile>\
+#     otherwise         -> %APPDATA%\<Vendor>\<Name>\
+# so this yields %APPDATA%\Varan\ instead of %APPDATA%\Moonchild Productions\Pale Moon\.
+#
+# WHY THIS LEVER AND NOT MOZ_APP_VENDOR/MOZ_APP_BASENAME: application.ini HARDCODES
+# Vendor= and Name= with the @MOZ_APP_VENDOR@/@MOZ_APP_BASENAME@ lines commented out
+# directly above them (upstream does this to get the space in "Pale Moon"), so editing
+# those two variables would not change the packaged file at all. MOZ_APP_PROFILE is
+# live: AC_SUBST at old-configure.in:4813 -> uxp/build/moz.build:35-36 -> the #ifdef
+# already present in app/application.ini. It also avoids %APPDATA%\Varan\Varan\.
+#
+# !! MOVING THIS ORPHANS ANY EXISTING PROFILE. Bookmarks, history, hand-set prefs and
+# installed extensions stay at the old path and a fresh profile is created silently.
+# Release-note it; on VENICE the old tree must be copied by hand if it matters.
+MOZ_APP_PROFILE=Varan
+
 # Varan (rename): pin the UA app token so the Varan display rebrand cannot leak into the
 # User-Agent. Empty MOZ_APP_UA_NAME => nsHttpHandler.cpp:319-326 falls back to application.ini
 # Name ("Pale Moon" -> stripped "PaleMoon"); pinning it here short-circuits that chain so the UA

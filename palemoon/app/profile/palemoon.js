@@ -160,7 +160,19 @@ pref("app.update.cert.maxErrors", 5);
 // application branding, depending on publisher.
 
 // Whether or not app updates are enabled
-pref("app.update.enabled", true);
+//
+// Varan: DISABLED, and this is a SAFETY decision rather than a branding one.
+// app.update.url (below) points at aus.palemoon.org and carries %BUILD_TARGET%.
+// There is no Varan update infrastructure, so the only possible outcomes of a
+// live check are (a) nothing, or (b) upstream answering about a target it has
+// never built -- and an offer of an x86 build to an ARM32 install is the bad
+// case. app.update.auto=false only suppresses silent INSTALL; the check and the
+// offer still happen, so that is not sufficient on its own.
+//
+// The URL is deliberately left in place as documentation of where updates would
+// come from if Varan ever publishes them. Re-enable this pref at the same time
+// as pointing app.update.url somewhere real, never before.
+pref("app.update.enabled", false);
 
 // This preference turns on app.update.mode and allows automatic download and
 // install to take place. We use a separate boolean toggle for this to make
@@ -464,6 +476,20 @@ pref("browser.tabs.noWindowActivationOnExternal", false);
 pref("browser.tabs.tabClipWidth", 140);
 pref("browser.tabs.animate", true);
 pref("browser.tabs.onTop", false);
+
+// Varan -- bottom placement of the navigation bar / tab strip, for tablet use.
+//
+// NOT the same axis as browser.tabs.onTop, which only chooses above-vs-below
+// the address bar with BOTH still above the page. These move the bar below the
+// PAGE, to the true bottom of the window, which needs a DOM reparent (see
+// base/content/varan-layout.js) rather than a CSS reorder.
+//
+// Default false on both: the shipped layout is unchanged unless the user opts
+// in from Preferences > Tabs. Applied when a window is built, so a change takes
+// effect in newly opened windows -- the pref pane says a restart is required
+// rather than promising a live reflow it cannot deliver.
+pref("browser.varan.layout.navbarAtBottom", false);
+pref("browser.varan.layout.tabsAtBottom", false);
 #ifdef XP_WIN
 pref("browser.tabs.drawInTitlebar", true);
 #else

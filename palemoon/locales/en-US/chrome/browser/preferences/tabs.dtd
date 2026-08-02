@@ -34,3 +34,11 @@
 <!ENTITY newtabPage.home.label              "The Pale Moon start page">
 <!ENTITY newtabPage.myhome.label            "My home page">
 <!ENTITY newtabPage.quickdial.label         "The Quickdial page">
+
+<!-- Varan: bottom chrome layout (see base/content/varan-layout.js) -->
+<!ENTITY varanLayout.label                  "Window layout">
+<!ENTITY varanLayoutRestartRequired.label   "Changes to these settings apply to newly opened windows; restart the browser to apply them everywhere.">
+<!ENTITY varanTabsAtBottom.label            "Show the tab bar at the bottom of the window">
+<!ENTITY varanTabsAtBottom.accesskey        "b">
+<!ENTITY varanNavbarAtBottom.label          "Show the address bar at the bottom of the window">
+<!ENTITY varanNavbarAtBottom.accesskey      "a">

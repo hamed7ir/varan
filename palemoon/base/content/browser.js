@@ -973,6 +973,11 @@ var gBrowserInit = {
     AudioIndicator.init();
     gPrivateBrowsingUI.init();
     TabsInTitlebar.init();
+    // Varan: must follow TabsInTitlebar.init(). applyLate() suppresses the
+    // caption pin via allowedBy(), whose _update() early-returns unless
+    // _initialized -- which is set by init(). Called before it, the suppression
+    // would be recorded but never applied.
+    VaranLayout.applyLate();
     retrieveToolbarIconsizesFromTheme();
     ToolbarIconColor.init();
     UserAgentCompatibility.init();
@@ -4566,7 +4571,20 @@ function onViewToolbarsPopupShowing(aEvent, aInsertPoint) {
   var firstMenuItem = aInsertPoint || popup.firstChild;
 
   let toolbarNodes = Array.slice(gNavToolbox.childNodes);
-  toolbarNodes.push(document.getElementById("addon-bar"));
+  // Varan: this list is built from gNavToolbox.childNodes literally, so a
+  // toolbar living OUTSIDE the toolbox has to be named explicitly or it drops
+  // off the Toolbars menu. #addon-bar always is; #nav-bar and #TabsToolbar are
+  // too whenever the user has moved them to the bottom of the window.
+  // Enumerated by id rather than via gNavToolbox.externalToolbars because that
+  // list is populated LAZILY, on first access of a toolbar's .toolbox getter,
+  // so it can still be empty here. The dedupe makes this a no-op in the default
+  // layout, where both bars are already in childNodes.
+  for (let id of ["addon-bar", "nav-bar", "TabsToolbar"]) {
+    let extra = document.getElementById(id);
+    if (extra && toolbarNodes.indexOf(extra) == -1) {
+      toolbarNodes.push(extra);
+    }
+  }
 
   for (let toolbar of toolbarNodes) {
 #ifdef MOZ_WIDGET_GTK

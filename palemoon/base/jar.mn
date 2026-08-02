@@ -26,6 +26,9 @@ browser.jar:
   content/browser/browser-title.css             (content/browser-title.css)
 * content/browser/browser.js                    (content/browser.js)
 * content/browser/browser.xul                   (content/browser.xul)
+# Varan: user-selectable bottom placement of the nav bar / tab strip.
+# Intentionally NOT preprocessed -- it needs no build-time conditionals.
+  content/browser/varan-layout.js               (content/varan-layout.js)
 #ifdef MOZ_DEVTOOLS
   content/browser/browser-devtools-theme.js     (content/browser-devtools-theme.js)
 #endif
