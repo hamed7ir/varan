@@ -1517,7 +1517,28 @@ pref("content.sink.pending_event_mode", 0);
 // result was total decode failure ("could not be decoded" x5). It gets tested ALONE
 // before it is ever baked.
 //
-// VARAN B2 (2026-08-01): THE ALONE-TEST IS NOW STAGED, AND THIS STAYS false.
+// VARAN B2 (2026-08-01): *** THE ALONE-TEST IS DONE. THIS PREF IS THE CULPRIT. ***
+// DEVICE-PROVEN HARMFUL, ISOLATED TO THIS ONE PREF. Same avc1 video, same build,
+// same profile shape, ONE pref different:
+//   force-enabled = FALSE -> plays. stats-for-nerds: avc1.4d401e (134) / opus (251),
+//                            640x360, 7174 frames, 0 dropped, buffer health 35.6 s.
+//                            [currentTime, readyState, error] = [165.19, 4, null]
+//   force-enabled = TRUE  -> "Media resource blob:... could not be decoded." x4,
+//                            repeated across two different videos.
+//                            [currentTime, readyState, error] = [0, 0, null]
+// So the earlier three-pref trip's "could not be decoded x5" was THIS pref all along.
+// It is no longer merely suspected or confounded -- it is isolated and confirmed.
+//
+// MECHANISM: forcing DXVA past the blocklist makes H.264 decoder CREATION fail on
+// FL9_1/Tegra 3, and there is no fallback to the software WMF path -- so instead of
+// losing hardware acceleration we lose H.264 decoding entirely.
+//
+// COROLLARY, and it corrects an earlier reading: about:support's
+// "Hardware H264 Decoding: No; Failed to create H264 decoder" was measured in the
+// profile that had THIS PREF ON. It was accurately reporting the damage the pref does,
+// not a missing OS decoder. H.264 decodes FINE on this device when the pref is false.
+//
+// *** DO NOT SET THIS. DO NOT RETEST IT. It is closed, against evidence. ***
 // The Track B trip ships a SECOND fresh profile whose user.js sets ONLY this pref,
 // so it differs from the baseline profile in exactly one variable -- which is what
 // "tested ALONE" requires, and what the earlier three-pref attempt could not give.
