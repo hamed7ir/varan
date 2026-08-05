@@ -194,6 +194,18 @@ wipes them**:
 
 Both are applied, with their gates, by `varan-fixup.sh` from the build tooling.
 
+⚠️ **`varan-fixup.sh` must run with `env-arm32.sh` sourced** (the same environment
+file the build uses), never from a bare MozillaBuild login shell. Without it,
+`python3` resolves to the Windows Store redirect stub
+(`%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe`), which prints ` - Cannot open`
+for every invocation — so the `__imp_` Thumb-bit step dies while looking like a
+file problem, and on an unlucky variant it could report gates green while fixing
+nothing. This has cost two false gate failures already; source the env first:
+
+```
+. /d/repo/mozbuild/env-arm32.sh && sh varan-thunk-override/varan-fixup.sh <objdir> <mozconfig>
+```
+
 ## 7. Verify
 
 A passing run reports, with denominators:
