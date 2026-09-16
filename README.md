@@ -15,15 +15,15 @@ This repository is the **application** half; the platform half is
 | | |
 |---|---|
 | upstream | `https://repo.palemoon.org/MoonchildProductions/Pale-Moon` |
-| fork point | `0d869b85feca1409f5aadb55e6eaabb08db134ad` — Pale Moon **34.3.1_Release** |
-| platform | [varan-uxp](https://github.com/hamed7ir/varan-uxp), fork point `659c690d5b34cc3e46c5ba8a6e00f134d8d20c35` (UXP `RB_20260624`) |
+| fork point | `fcd973b380ec888fc69ed4cdd5ae0b408d3b4979` — Pale Moon **35.0.0_Release** |
+| platform | [varan-uxp](https://github.com/hamed7ir/varan-uxp), fork point `81fce269f524c16cca7c3ce84b66002ce9b7da8b` (UXP `RB_20260914`) |
 
 GitHub cannot draw a fork relationship to a Gitea-hosted upstream, so the fork
 point is recorded here instead. `git merge-base HEAD <fork point>` should return
 the fork point exactly; if it does not, this README is stale.
 
 The app and platform fork points are the **exact pair** — the `platform` gitlink
-in upstream `0d869b85` is `659c690d`. Building against a mismatched pair is not
+in upstream `fcd973b3` is `81fce269`. Building against a mismatched pair is not
 supported.
 
 ## Building
@@ -50,7 +50,7 @@ fork point above is the complete set of changes.
 Upstream copyright notices are preserved. Pale Moon trademark **assets** are
 removed; where the upstream name is retained it is either an MPL attribution
 requirement or a compatibility token (the User-Agent deliberately still reports
-`PaleMoon/34.3.1`, because changing it breaks site compatibility that this port
+`PaleMoon/35.0.0`, because changing it breaks site compatibility that this port
 depends on).
 
 ## Diagnostics shipped in release builds
@@ -109,10 +109,10 @@ Fork points, which `git merge-base` should reproduce exactly:
 
 | repo | fork point | upstream |
 |---|---|---|
-| `varan` | `0d869b85` (Pale Moon **34.3.1_Release**) | `repo.palemoon.org/MoonchildProductions/Pale-Moon` |
-| `varan-uxp` | `659c690d` (UXP **RB_20260624**) | `repo.palemoon.org/MoonchildProductions/UXP` |
+| `varan` | `fcd973b3` (Pale Moon **35.0.0_Release**) | `repo.palemoon.org/MoonchildProductions/Pale-Moon` |
+| `varan-uxp` | `81fce269` (UXP **RB_20260914**) | `repo.palemoon.org/MoonchildProductions/UXP` |
 
-These are the **exact pair** — upstream `0d869b85`'s own gitlink is `659c690d`.
+These are the **exact pair** — upstream `fcd973b3`'s own gitlink is `81fce269`.
 
 ## 3. Build the ARM EABI shim
 
