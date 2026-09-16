@@ -75,7 +75,7 @@ you cannot build this on the Surface itself.
 | | |
 |---|---|
 | **MozillaBuild 3.x** | `d:\mozilla-build` — provides the MSYS shell, `mozmake`, Python 3 |
-| **LLVM / clang-cl 18** | `C:\Program Files\LLVM`. **18.1.8 is what this is built and tested with.** Newer may work; the toolchain-bug workarounds in this tree are calibrated to 18. |
+| **LLVM / clang-cl** | Which clang you use decides whether step 6 is required — see **1b** below. The release binaries were built with **rt2** (clang 23.1.1 + one lld patch). |
 | **MSVC 14.16** (VS2017 toolset) | for the **ARM** libraries |
 | **Windows SDK 10.0.19041.0** | ARM libraries + `d3dcompiler_47.dll` |
 | **NSIS 3.01** | on `PATH` |
@@ -93,6 +93,33 @@ hostx64-um/     from  <SDK>\Lib\10.0.19041.0\um\x64
 ```
 
 Point `HOST_LDFLAGS` at wherever you put them (see the mozconfig below).
+
+### 1b. Which clang — and what it costs you
+
+Two `clang-cl`/`lld` defects on this target are device-lethal, and where each one
+gets fixed decides how much post-link work you are left with. Both were measured,
+not assumed; the thunk row is a three-instruction difference you can reproduce in a
+minute with any virtual pointer-to-member call.
+
+| toolchain | vcall thunk (bug 1) | `__imp_` Thumb bit (bug 2) | step 6 |
+|---|---|---|---|
+| stock LLVM 18.1.8 | **broken** — thunk uses `r1` | **broken** | **both fixups required** |
+| stock LLVM 23.x | fixed upstream — thunk uses `r12` | **still broken** | `__imp_` fixup required |
+| **rt2** (23.1.1 + Varan lld patch) | fixed | fixed | **nothing to do** |
+
+**rt2 is what the released binaries were built with.** It is stock LLVM 23.1.1 plus
+a patch to `lld/COFF/Chunks.cpp` that sets bit 0 when a local `__imp_` slot points
+at Thumb code. The patch series is published at
+[llvm-rt](https://github.com/hamed7ir/llvm-rt). That fix is *not* upstream, which is
+why even a current stock clang still needs the post-link `__imp_` pass.
+
+Bug 1, by contrast, **is** fixed upstream in clang 23. On 18.1.8 an MSVC virtual
+pointer-to-member thunk is emitted as `ldr r1,[r0]; ldr r1,[r1,#N]; bx r1` — using
+AAPCS argument register `r1` as scratch, destroying the first argument of every such
+call. Clang 23 emits `ldr.w r12,[r0]; ldr.w r12,[r12,#N]; bx r12`, which is correct.
+
+If you build with something older than 23, expect this tree's other toolchain
+workarounds to matter too; they were calibrated against 18.1.8.
 
 ## 2. Get the source — two repositories
 
@@ -178,32 +205,39 @@ cd /path/to/varan
 ./mach build
 ```
 
-## 6. Post-link fixups — MANDATORY
+## 6. Post-link fixups — required unless you built with rt2
 
-⚠️ **A build that skips this produces binaries that crash on the device.**
-Two clang-cl/lld codegen defects are corrected *after* linking, and **any relink
-wipes them**:
+**If you built with rt2, skip this section.** Both of its fixes are already in the
+compiler and linker, and the gates in step 7 pass with nothing applied — that is
+exactly how the released binaries were produced and verified.
 
-- **vcall thunks** — clang-cl emits MSVC virtual pointer-to-member thunks using
-  `r1` (AAPCS arg1) as scratch instead of `r12`, destroying the first argument of
-  any virtual member-function-pointer call. Corrected by a link-time COMDAT
-  override.
-- **`__imp_` Thumb bit** — lld writes a local `__imp_` pointer to a statically
-  folded function without bit 0 set, so `blx` enters ARM state and faults. A
-  post-link 1-bit fix.
+**On any other toolchain, read 1b and apply what that table says.** A build that
+needs a fixup and skips it produces binaries that crash on the device, and **any
+relink wipes an applied fixup**, so this runs after the final link.
 
-Both are applied, with their gates, by `varan-fixup.sh` from the build tooling.
+- **vcall thunks** *(needed on 18.x only — fixed upstream in clang 23)* — clang-cl
+  emits MSVC virtual pointer-to-member thunks using `r1` (AAPCS arg1) as scratch
+  instead of `r12`, destroying the first argument of any virtual
+  member-function-pointer call. Corrected by a link-time COMDAT override.
+- **`__imp_` Thumb bit** *(needed on every stock clang, including 23)* — lld writes
+  a local `__imp_` pointer to a statically folded function without bit 0 set, so
+  `blx` enters ARM state and faults. A post-link 1-bit fix. rt2 fixes this in lld
+  itself; no stock release does.
 
-⚠️ **`varan-fixup.sh` must run with `env-arm32.sh` sourced** (the same environment
-file the build uses), never from a bare MozillaBuild login shell. Without it,
-`python3` resolves to the Windows Store redirect stub
-(`%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe`), which prints ` - Cannot open`
-for every invocation — so the `__imp_` Thumb-bit step dies while looking like a
-file problem, and on an unlucky variant it could report gates green while fixing
-nothing. This has cost two false gate failures already; source the env first:
+Both are applied, with their gates, by `varan-fixup.sh`. That script and the
+thunk/`__imp_` tooling are **not in this repository** — they ship with the source
+export, under `tooling/varan-thunk-override/`.
+
+⚠️ **`varan-fixup.sh` must run with the build's own environment file sourced**,
+never from a bare MozillaBuild login shell. Without it, `python3` resolves to the
+Windows Store redirect stub (`%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe`),
+which prints ` - Cannot open` for every invocation — so the `__imp_` Thumb-bit step
+dies while looking like a file problem, and on an unlucky variant it could report
+gates green while fixing nothing. This has cost two false gate failures already;
+source the env first:
 
 ```
-. /d/repo/mozbuild/env-arm32.sh && sh varan-thunk-override/varan-fixup.sh <objdir> <mozconfig>
+. ./env-arm32.sh && sh varan-thunk-override/varan-fixup.sh <objdir> <mozconfig>
 ```
 
 ## 7. Verify
