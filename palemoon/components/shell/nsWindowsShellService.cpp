@@ -101,18 +101,18 @@ OpenKeyForReading(HKEY aKeyRoot, const nsAString& aKeyName, HKEY* aKey)
 //    .htm .html .shtml .xht .xhtml 
 //   are mapped like so:
 //
-//   HKCU\SOFTWARE\Classes\.<ext>\      (default)         REG_SZ     PaleMoonHTML
+//   HKCU\SOFTWARE\Classes\.<ext>\      (default)         REG_SZ     VaranHTML
 //
 //   as aliases to the class:
 //
-//   HKCU\SOFTWARE\Classes\PaleMoonHTML\
+//   HKCU\SOFTWARE\Classes\VaranHTML\
 //     DefaultIcon                      (default)         REG_SZ     <apppath>,1
 //     shell\open\command               (default)         REG_SZ     <apppath> -osint -url "%1"
 //     shell\open\ddeexec               (default)         REG_SZ     <empty string>
 //
 // - Windows Vista and above Protocol Handler
 //
-//   HKCU\SOFTWARE\Classes\PaleMoonURL\  (default)         REG_SZ     <appname> URL
+//   HKCU\SOFTWARE\Classes\VaranURL\  (default)         REG_SZ     <appname> URL
 //                                      EditFlags         REG_DWORD  2
 //                                      FriendlyTypeName  REG_SZ     <appname> URL
 //     DefaultIcon                      (default)         REG_SZ     <apppath>,1
@@ -132,10 +132,10 @@ OpenKeyForReading(HKEY aKeyRoot, const nsAString& aKeyName, HKEY* aKey)
 //
 // - Windows Start Menu (XP SP1 and newer)
 //   -------------------------------------------------
-//   The following keys are set to make PaleMoon appear in the Start Menu as the
+//   The following keys are set to make Varan appear in the Start Menu as the
 //   browser:
 //   
-//   HKCU\SOFTWARE\Clients\StartMenuInternet\PaleMoon.EXE\
+//   HKCU\SOFTWARE\Clients\StartMenuInternet\varan.exe\
 //                                      (default)         REG_SZ     <appname>
 //     DefaultIcon                      (default)         REG_SZ     <apppath>,0
 //     InstallInfo                      HideIconsCommand  REG_SZ     <uninstpath> /HideShortcuts
@@ -156,7 +156,14 @@ typedef struct {
   const char* oldValueData;
 } SETTING;
 
-#define APP_REG_NAME L"Pale Moon"
+// Varan v1.1: this must match the name the INSTALLER writes into
+// HKCU\Software\RegisteredApplications. It is the name
+// IApplicationAssociationRegistration::QueryAppIsDefaultAll resolves, so if the two
+// ever disagree the browser can neither report nor become the default. It was still
+// "Pale Moon" because the rebrand never touched this file (its only commit is the
+// 34.3.1 fork point). Setup.cs writes no RegisteredApplications entry at all, which
+// is the other half of why "set as default" silently did nothing.
+#define APP_REG_NAME L"Varan"
 #define VAL_FILE_ICON "%APPPATH%,1"
 #define VAL_OPEN "\"%APPPATH%\" -osint -url \"%1\""
 #define OLD_VAL_OPEN "\"%APPPATH%\" -requestPending -osint -url \"%1\""
@@ -170,11 +177,11 @@ typedef struct {
   PREFIX MID
 
 // The DefaultIcon registry key value should never be used when checking if
-// PaleMoon is the default browser for file handlers since other applications
+// Varan is the default browser for file handlers since other applications
 // (e.g. MS Office) may modify the DefaultIcon registry key value to add Icon
 // Handlers. see http://msdn2.microsoft.com/en-us/library/aa969357.aspx for
 // more info. The FTP protocol is not checked so advanced users can set the FTP
-// handler to another application and still have PaleMoon check if it is the
+// handler to another application and still have Varan check if it is the
 // default HTTP and HTTPS handler.
 // *** Do not add additional checks here unless you skip them when aForAllTypes
 // is false below***.
@@ -182,10 +189,10 @@ static SETTING gSettings[] = {
   // File Handler Class
   // ***keep this as the first entry because when aForAllTypes is not set below
   // it will skip over this check.***
-  { MAKE_KEY_NAME1("PaleMoonHTML", SOC), VAL_OPEN, OLD_VAL_OPEN },
+  { MAKE_KEY_NAME1("VaranHTML", SOC), VAL_OPEN, OLD_VAL_OPEN },
 
   // Protocol Handler Class - for Vista and above
-  { MAKE_KEY_NAME1("PaleMoonURL", SOC), VAL_OPEN, OLD_VAL_OPEN },
+  { MAKE_KEY_NAME1("VaranURL", SOC), VAL_OPEN, OLD_VAL_OPEN },
 
   // Protocol Handlers
   { MAKE_KEY_NAME1("HTTP", DI), VAL_FILE_ICON },
@@ -195,14 +202,14 @@ static SETTING gSettings[] = {
 };
 
 // The settings to disable DDE are separate from the default browser settings
-// since they are only checked when PaleMoon is the default browser and if they
+// since they are only checked when Varan is the default browser and if they
 // are incorrect they are fixed without notifying the user.
 static SETTING gDDESettings[] = {
   // File Handler Class
-  { MAKE_KEY_NAME1("Software\\Classes\\PaleMoonHTML", SOD) },
+  { MAKE_KEY_NAME1("Software\\Classes\\VaranHTML", SOD) },
 
   // Protocol Handler Class - for Vista and above
-  { MAKE_KEY_NAME1("Software\\Classes\\PaleMoonURL", SOD) },
+  { MAKE_KEY_NAME1("Software\\Classes\\VaranURL", SOD) },
 
   // Protocol Handlers
   { MAKE_KEY_NAME1("Software\\Classes\\FTP", SOD) },
@@ -339,7 +346,7 @@ IsAARDefault(const RefPtr<IApplicationAssociationRegistration>& pAAR,
     return false;
   }
 
-  LPCWSTR progID = isProtocol ? L"PaleMoonURL" : L"PaleMoonHTML";
+  LPCWSTR progID = isProtocol ? L"VaranURL" : L"VaranHTML";
   bool isDefault = !wcsicmp(registeredApp, progID);
   CoTaskMemFree(registeredApp);
 
@@ -371,8 +378,8 @@ IsDefaultBrowserWin8(bool aCheckAllTypes, bool* aIsDefaultBrowser)
 
 /*
  * Query's the AAR for the default status.
- * This only checks for PaleMoonURL and if aCheckAllTypes is set, then
- * it also checks for PaleMoonHTML.  Note that those ProgIDs are shared
+ * This only checks for VaranURL and if aCheckAllTypes is set, then
+ * it also checks for VaranHTML.  Note that those ProgIDs are shared
  * by all PaleMoon browsers.
 */
 bool
