@@ -9,6 +9,7 @@ This repository is the **application** half; the platform half is
 > Productions.** Pale Moon's name and logo are their trademarks; the branding and
 > logo assets have been removed from this fork per their redistribution terms.
 > Report bugs here, never to the Pale Moon project.
+<img width="1366" height="768" alt="release" src="https://github.com/user-attachments/assets/43322a7b-3726-4e10-805d-450ba1f93f57" />
 
 ## Provenance
 
