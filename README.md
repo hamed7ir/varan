@@ -11,6 +11,17 @@ This repository is the **application** half; the platform half is
 > Report bugs here, never to the Pale Moon project.
 <img width="1366" height="768" alt="release" src="https://github.com/user-attachments/assets/43322a7b-3726-4e10-805d-450ba1f93f57" />
 
+## Supported platforms and requirements
+
+- **Windows RT 8.0**, **Windows RT 8.1** and **Windows 10 ARM32** (build 15035), all on ARM32
+  hardware — Surface RT / Surface 2, Tegra 3 / Tegra 4.
+- The device must be in **test-signing mode**. Windows RT will not load unsigned ARM binaries under
+  its default policy.
+- The **Microsoft Visual C++ 2015 or later redistributable for ARM32** must be installed.
+  `varan.exe` imports `VCRUNTIME140.dll` and the `api-ms-win-crt-*` Universal CRT stubs, and **no CRT
+  ships inside the package** — without the redistributable the browser fails to start with a
+  missing-DLL error.
+
 ## Provenance
 
 | | |
